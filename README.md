@@ -1,2 +1,8 @@
 # yolo_vs_detr
-master
+
+# master survey
+
+# motivation
+
+# wants to do
+
