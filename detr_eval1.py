@@ -15,6 +15,7 @@ from torchvision.models import resnet50
 
 torch.set_grad_enabled(False)
 
+import argparse
 import time  # 追加
 
 import cv2  # 追加
@@ -124,6 +125,28 @@ COLORS = [
     [0.301, 0.745, 0.933],
 ]
 
+
+def get_args_parser():
+    parser = argparse.ArgumentParser("Set Anything args", add_help=False)
+    parser.add_argument(
+        "--gpu", default=False, type=bool, help="if use GPU, give --gpu"
+    )
+    parser.add_argument(
+        "--display",
+        default=False,
+        type=bool,
+        help="if display evaled video, give --display",
+    )
+    parser.add_argument(
+        "--camera",
+        default=False,
+        type=bool,
+        help="if you want to real time eval, give --amera",
+    )
+
+    return parser
+
+
 # for output bounding box post-processing
 def box_cxcywh_to_xyxy(x):
     x_c, y_c, w, h = x.unbind(1)
@@ -173,7 +196,101 @@ def put_rect(cv2_img, prob, boxes):
     return output_image
 
 
-def main():
+def use_gpu(video_capture, transform, model, fps, out, diaplay):
+    model = model.cuda()
+    start = time.time()
+    _, frame = video_capture.read()
+    frame_cvt = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+    im = Image.fromarray(frame_cvt)
+
+    # mean-std normalize the input image (batch-size: 1)
+    img = transform(im).unsqueeze(0).cuda()
+    # propagate through the model
+    with torch.no_grad():
+        outputs = model(img)
+
+    # keep only predictions with 0.7+ confidence
+    probas = outputs["pred_logits"].softmax(-1)[0, :, :-1]
+    keep = probas.max(-1).values > 0.9
+
+    # convert boxes from [0; 1] to image scales
+    bboxes_scaled = rescale_bboxes(outputs["pred_boxes"][0, keep].cpu(), im.size)
+
+    # display
+    output_image = put_rect(frame, probas[keep], bboxes_scaled)
+
+    # End time
+    end = time.time()
+    # Time elapsed
+    seconds = end - start
+    print("time:{:.3f} msec".format(seconds * 1000))
+
+    # Calculate frames per second
+    fps = (fps + (1 / seconds)) / 2
+
+    cv2.putText(
+        output_image,
+        "{:.2f}".format(fps) + " fps",
+        (10, 50),
+        cv2.FONT_HERSHEY_SIMPLEX,
+        0.8,
+        (255, 0, 0),
+        3,
+    )
+    if display:
+        cv2.imshow("Video", output_image)
+
+    out.write(output_image)
+
+
+def use_cpu(video_capture, transform, model, fps, out, display):
+    start = time.time()
+    _, frame = video_capture.read()
+    frame_cvt = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+    im = Image.fromarray(frame_cvt)
+
+    # mean-std normalize the input image (batch-size: 1)
+    img = transform(im).unsqueeze(0)
+
+    # propagate through the model
+    with torch.no_grad():
+        outputs = model(img)
+
+    # keep only predictions with 0.7+ confidence
+    probas = outputs["pred_logits"].softmax(-1)[0, :, :-1]
+    keep = probas.max(-1).values > 0.9
+
+    # convert boxes from [0; 1] to image scales
+    bboxes_scaled = rescale_bboxes(outputs["pred_boxes"][0, keep], im.size)
+
+    # display
+    output_image = put_rect(frame, probas[keep], bboxes_scaled)
+
+    # End time
+    end = time.time()
+    # Time elapsed
+    seconds = end - start
+    print("time:{:.3f} msec".format(seconds * 1000))
+
+    # Calculate frames per second
+    fps = (fps + (1 / seconds)) / 2
+
+    cv2.putText(
+        output_image,
+        "{:.2f}".format(fps) + " fps",
+        (10, 50),
+        cv2.FONT_HERSHEY_SIMPLEX,
+        0.8,
+        (255, 0, 0),
+        3,
+    )
+    if display:
+        cv2.imshow("Video", output_image)
+
+    out.write(output_image)
+
+
+def main(args):
     # standard PyTorch mean-std input image normalization
     transform = T.Compose(
         [
@@ -186,10 +303,10 @@ def main():
     # model load
     model = torch.hub.load("facebookresearch/detr", "detr_resnet50", pretrained=True)
 
-    # model = model.cuda()   #GPUを使用する場合はこちら
-
-    # video_capture = cv2.VideoCapture(0)               #USBカメラ入力
-    video_capture = cv2.VideoCapture("data/test_india.mp4")  # 動画読み込み
+    if args.camera:
+        video_capture = cv2.VideoCapture(0)
+    else:
+        video_capture = cv2.VideoCapture("data/test_india.mp4")  # 動画読み込み
 
     # 幅と高さを取得
     width = int(video_capture.get(cv2.CAP_PROP_FRAME_WIDTH))
@@ -207,59 +324,29 @@ def main():
     seconds = 0.0
     fps = 0.0
 
-    # while True:                    # USBカメラ入力の場合
-    for i in range(frame_count):  # 動画読み込みの場合
+    if args.camera:  # use camera
+        if args.gpu:
+            while True:
+                use_gpu(video_capture, transform, model, fps, out, args.display)
+                if cv2.waitKey(1) & 0xFF == ord("q"):  # Press Q to stop!
+                    break
+        else:
+            while True:
+                use_cpu(video_capture, transform, model, fps, out, args.display)
+                if cv2.waitKey(1) & 0xFF == ord("q"):  # Press Q to stop!
+                    break
 
-        start = time.time()
-        _, frame = video_capture.read()
-        frame_cvt = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-        im = Image.fromarray(frame_cvt)
-
-        # mean-std normalize the input image (batch-size: 1)
-        # img = transform(im).unsqueeze(0).cuda()#GPUを使用する場合
-        img = transform(im).unsqueeze(0)
-
-        # propagate through the model
-        with torch.no_grad():
-            outputs = model(img)
-
-        # keep only predictions with 0.7+ confidence
-        probas = outputs["pred_logits"].softmax(-1)[0, :, :-1]
-        keep = probas.max(-1).values > 0.9
-
-        # convert boxes from [0; 1] to image scales
-        bboxes_scaled = rescale_bboxes(
-            outputs["pred_boxes"][0, keep].cpu(), im.size
-        )  # GPU
-        # bboxes_scaled = rescale_bboxes(outputs['pred_boxes'][0, keep], im.size)
-
-        # display
-        output_image = put_rect(frame, probas[keep], bboxes_scaled)
-
-        # End time
-        end = time.time()
-        # Time elapsed
-        seconds = end - start
-        print("time:{:.3f} msec".format(seconds * 1000))
-
-        # Calculate frames per second
-        fps = (fps + (1 / seconds)) / 2
-
-        cv2.putText(
-            output_image,
-            "{:.2f}".format(fps) + " fps",
-            (10, 50),
-            cv2.FONT_HERSHEY_SIMPLEX,
-            0.8,
-            (255, 0, 0),
-            3,
-        )
-        # cv2.imshow("Video", output_image) #displayに表示したい場合
-        out.write(output_image)
-
-        # Press Q to stop!
-        if cv2.waitKey(1) & 0xFF == ord("q"):
-            break
+    else:
+        if args.gpu:
+            for i in range(frame_count):  # 動画読み込みの場合
+                use_gpu(video_capture, transform, model, fps, out, args.display)
+                if cv2.waitKey(1) & 0xFF == ord("q"):  # Press Q to stop!
+                    break
+        else:
+            for i in range(frame_count):
+                use_cpu(video_capture, transform, model, fps, out, args.display)
+                if cv2.waitKey(1) & 0xFF == ord("q"):  # Press Q to stop!
+                    break
 
     video_capture.release()  # 読み込んだ動画やカメラデバイスを閉じるにはrelease()メソッドを実行する。
     out.release()
@@ -268,4 +355,8 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    parser = argparse.ArgumentParser(
+        "Evaluate Trafic Video Fps by DETR or YOLO", parents=[get_args_parser()]
+    )
+    args = parser.parse_args()
+    main(args)
