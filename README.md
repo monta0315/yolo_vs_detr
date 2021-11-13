@@ -8,6 +8,11 @@
 
 ### output
 
+### eval_V_or_V.py
+
+    You can select camera, display, and gpu as arguments
+    (--display True --gpu True --camera True)
+
 DETR(threshold = 0.9) => Shibuya Scramble Crossing
 ![image](https://user-images.githubusercontent.com/63449578/140306264-26696d4a-a375-4c92-b717-92cbba094d5a.png)
 
