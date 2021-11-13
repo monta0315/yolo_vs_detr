@@ -221,10 +221,12 @@ def use_gpu(video_capture, transform, model, fps, out, diaplay):
     end = time.time()
     # Time elapsed
     seconds = end - start
-    print("time:{:.3f} msec".format(seconds * 1000))
 
     # Calculate frames per second
     fps = (fps + (1 / seconds)) / 2
+
+    print("time:{:.3f} msec".format(seconds * 1000)+"  "+"{:.2f}".format(fps) + " fps")
+
 
     cv2.putText(
         output_image,
@@ -268,10 +270,12 @@ def use_cpu(video_capture, transform, model, fps, out, display):
     end = time.time()
     # Time elapsed
     seconds = end - start
-    print("time:{:.3f} msec".format(seconds * 1000))
 
     # Calculate frames per second
     fps = (fps + (1 / seconds)) / 2
+
+    print("time:{:.3f} msec".format(seconds * 1000)+"  "+"{:.2f}".format(fps) + " fps")
+
 
     cv2.putText(
         output_image,
