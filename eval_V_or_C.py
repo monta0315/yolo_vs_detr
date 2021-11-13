@@ -125,7 +125,7 @@ COLORS = [
 
 
 def get_args_parser():
-    parser = argparse.ArgumentParser("Set Anything args", add_help=False)
+    parser = argparse.ArgumentParser("Set Some args", add_help=False)
     parser.add_argument(
         "--gpu", default=False, type=bool, help="if use GPU, give --gpu"
     )
@@ -194,7 +194,7 @@ def put_rect(cv2_img, prob, boxes):
     return output_image
 
 
-def use_gpu(video_capture, transform, model, fps, out, diaplay):
+def use_gpu(video_capture, transform, model, fps, out, display):
     model = model.cuda()
     start = time.time()
     _, frame = video_capture.read()
@@ -358,7 +358,7 @@ def main(args):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
-        "Evaluate Trafic Video Fps by DETR or YOLO", parents=[get_args_parser()]
+        "Evaluate Trafic Video Fps by DETR", parents=[get_args_parser()]
     )
     args = parser.parse_args()
     main(args)
