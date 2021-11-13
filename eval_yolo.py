@@ -182,15 +182,12 @@ def put_rect(cv2_img, prob, boxes):
     return output_image
 
 
-def use_gpu(video_capture, transform, model, fps, out, display):
+def use_gpu(video_capture, model, fps, out, display):
     model = model.cuda()
     start = time.time()
     _, frame = video_capture.read()
     frame_cvt = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-    im = Image.fromarray(frame_cvt)
-
-    # mean-std normalize the input image (batch-size: 1)
-    img = transform(im).unsqueeze(0).cuda()
+    img = Image.fromarray(frame_cvt)
     # propagate through the model
     with torch.no_grad():
         outputs = model(img)
@@ -229,14 +226,11 @@ def use_gpu(video_capture, transform, model, fps, out, display):
     out.write(output_image)
 
 
-def use_cpu(video_capture, transform, model, fps, out, display):
+def use_cpu(video_capture, model, fps, out, display):
     start = time.time()
     _, frame = video_capture.read()
     frame_cvt = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-    im = Image.fromarray(frame_cvt)
-
-    # mean-std normalize the input image (batch-size: 1)
-    img = transform(im).unsqueeze(0)
+    img = Image.fromarray(frame_cvt)
 
     # propagate through the model
     with torch.no_grad():
@@ -278,17 +272,7 @@ def use_cpu(video_capture, transform, model, fps, out, display):
 
 def main(args):
     # standard PyTorch mean-std input image normalization
-    transform = T.Compose(
-        [
-            T.Resize(800),
-            T.ToTensor(),
-            T.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225]),
-        ]
-    )
     model = torch.hub.load("ultralytics/yolov5", "yolov5s", pretrained=True)
-    if args.gpu:
-        model = model.cuda()
-
     video_capture = cv2.VideoCapture("data/test_india.mp4")
 
     # 幅と高さを取得
@@ -309,12 +293,12 @@ def main(args):
 
     if args.gpu:
         for i in range(frame_count):
-            use_gpu(video_capture, transform, model, fps, out, args.display)
+            use_gpu(video_capture, model, fps, out, args.display)
             if cv2.waitKey(1) & 0xFF == ord("q"):  # Press Q to stop!
                 break
     else:
         for i in range(frame_count):
-            use_cpu(video_capture, transform, model, fps, out, args.display)
+            use_cpu(video_capture, model, fps, out, args.display)
             if cv2.waitKey(1) & 0xFF == ord("q"):  # Press Q to stop!
                 break
 
