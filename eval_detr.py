@@ -14,9 +14,9 @@ from torchvision.models import resnet50
 torch.set_grad_enabled(False)
 
 import argparse
-import time  # 追加
+import time
 
-import cv2  # 追加
+import cv2
 
 # COCO classes
 CLASSES = [
@@ -159,7 +159,6 @@ def rescale_bboxes(out_bbox, size):
     return b
 
 
-# 以下関数を修正
 def put_rect(cv2_img, prob, boxes):
     colors = COLORS * 100
     output_image = cv2_img
@@ -310,15 +309,13 @@ def main(args):
     if args.camera:
         video_capture = cv2.VideoCapture(0)
     else:
-        video_capture = cv2.VideoCapture("data/test_india.mp4")  # 動画読み込み
+        video_capture = cv2.VideoCapture("data/test_india.mp4")
 
-    # 幅と高さを取得
     width = int(video_capture.get(cv2.CAP_PROP_FRAME_WIDTH))
     height = int(video_capture.get(cv2.CAP_PROP_FRAME_HEIGHT))
     size = (width, height)
 
-    # 総フレーム数とフレームレートを取得
-    frame_count = int(video_capture.get(cv2.CAP_PROP_FRAME_COUNT))  # 動画読み込みの場合
+    frame_count = int(video_capture.get(cv2.CAP_PROP_FRAME_COUNT))
     print("動画のフレームカウント数", frame_count)
     frame_rate = int(video_capture.get(cv2.CAP_PROP_FPS))
 
@@ -352,7 +349,7 @@ def main(args):
                 if cv2.waitKey(1) & 0xFF == ord("q"):  # Press Q to stop!
                     break
 
-    video_capture.release()  # 読み込んだ動画やカメラデバイスを閉じるにはrelease()メソッドを実行する。
+    video_capture.release()
     out.release()
     cv2.destroyAllWindows()
     print("everything is done")
